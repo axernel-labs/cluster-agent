@@ -355,6 +355,7 @@ var _ = Describe("workloadReconciler", func() {
 			Return(true, "", nil).AnyTimes()
 		mockDepCheck.EXPECT().VolumeMountsReadyForUse(gomock.Any(), gomock.Any()).
 			Return(true, "", nil).AnyTimes()
+		allowNoStaleWorkloads(mockClient, &appsv1.Deployment{})
 	})
 
 	AfterEach(func() {

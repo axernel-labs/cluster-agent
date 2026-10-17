@@ -22,7 +22,8 @@ func (r *Reconciler) reconcileJob(ctx context.Context, resource *v1alpha1.StackR
 	err := r.Client.Get(ctx, types.NamespacedName{Name: GetWorkloadNameForResource(resource), Namespace: resource.Namespace}, job)
 	switch {
 	case apierrors.IsNotFound(err):
-		if created, applyErr := r.applyJob(ctx, resource); applyErr != nil || created == nil {
+		created, applyErr := r.applyJob(ctx, resource)
+		if applyErr != nil || created == nil {
 			if applyErr == nil {
 				// Unreachable today (applyJob returns a Job or an error), but a
 				// stop without a verdict would derive as available off the
@@ -31,9 +32,15 @@ func (r *Reconciler) reconcileJob(ctx context.Context, resource *v1alpha1.StackR
 			}
 			return controller.ResultStop, applyErr
 		}
+		if err := r.retireStaleWorkloads(ctx, resource, created); err != nil {
+			return controller.ResultNil, err
+		}
 		r.Status.ReportNotReady(ctx, resource, "JobRunning", "job created, waiting for completion")
 		return controller.ResultRequeueAfter(5 * time.Second), nil
 	case err != nil:
+		return controller.ResultNil, err
+	}
+	if err := r.retireStaleWorkloads(ctx, resource, job); err != nil {
 		return controller.ResultNil, err
 	}
 

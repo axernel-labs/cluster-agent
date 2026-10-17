@@ -26,6 +26,9 @@ func (r *Reconciler) reconcileCronJob(ctx context.Context, resource *v1alpha1.St
 		r.Status.ReportNotReady(ctx, resource, "CronJobNotReady", "waiting for the cronjob to be created")
 		return controller.ResultStop, nil
 	}
+	if err := r.retireStaleWorkloads(ctx, resource, cj); err != nil {
+		return controller.ResultNil, err
+	}
 	return r.evaluateCronJobStatus(ctx, resource, cj), nil
 }
 

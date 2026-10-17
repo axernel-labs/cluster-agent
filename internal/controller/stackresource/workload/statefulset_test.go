@@ -117,6 +117,7 @@ var _ = Describe("statefulSetReconciler", func() {
 			Return(true, "", nil).AnyTimes()
 		mockDepCheck.EXPECT().VolumeMountsReadyForUse(gomock.Any(), gomock.Any()).
 			Return(true, "", nil).AnyTimes()
+		allowNoStaleWorkloads(mockClient, &appsv1.StatefulSet{})
 	})
 
 	AfterEach(func() {
