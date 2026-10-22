@@ -17,7 +17,7 @@ const (
 	BuildSourceResourceName    = "todo-app"
 	RegistryDockerConfigSecret = "registry-docker-config"
 	// Requires: main branch, root Dockerfile, docker/Dockerfile.prod, docker/Dockerfile.broken
-	PublicTestRepoURL = "https://github.com/Stackdome/test-repo.git"
+	PublicTestRepoURL = "https://github.com/axernel-labs/test-repo.git"
 
 	TestRevision = "test-rev-1"
 )
