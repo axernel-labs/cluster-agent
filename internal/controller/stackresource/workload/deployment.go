@@ -40,6 +40,9 @@ func (r *Reconciler) reconcileDeployment(ctx context.Context, resource *v1alpha1
 	if deployment == nil {
 		return controller.ResultStop, nil
 	}
+	if err := r.retireStaleWorkloads(ctx, resource, deployment); err != nil {
+		return controller.ResultNil, err
+	}
 
 	if restartAnnotationApplied {
 		resource.Status.LastRestartRequestProcessedAt = ptr.To(v1.NewTime(time.Now().UTC()))

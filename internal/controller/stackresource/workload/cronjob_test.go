@@ -118,6 +118,7 @@ var _ = Describe("cronJobReconciler", func() {
 			Return(true, "", nil).AnyTimes()
 		mockDepCheck.EXPECT().VolumeMountsReadyForUse(gomock.Any(), gomock.Any()).
 			Return(true, "", nil).AnyTimes()
+		allowNoStaleWorkloads(mockClient, &batchv1.CronJob{})
 	})
 
 	AfterEach(func() {

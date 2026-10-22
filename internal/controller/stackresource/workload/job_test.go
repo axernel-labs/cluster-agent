@@ -61,6 +61,7 @@ var _ = Describe("jobReconciler", func() {
 			Return(true, "", nil).AnyTimes()
 		mockDepCheck.EXPECT().VolumeMountsReadyForUse(gomock.Any(), gomock.Any()).
 			Return(true, "", nil).AnyTimes()
+		allowNoStaleWorkloads(mockClient, &batchv1.Job{})
 	})
 
 	AfterEach(func() {

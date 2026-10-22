@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -87,6 +88,64 @@ var _ = Describe("Stack mutations and deletion", func() {
 				return d.Spec.Template.Spec.Containers[0].Image == newImage
 			}, readyTimeout)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterAll(func() { helpers.CleanupStack(ctx, c, stack) })
+	})
+
+	Context("Spec mutation - workload type change", Ordered, func() {
+		var stack *corev1alpha1.Stack
+
+		BeforeAll(func() {
+			swr := fixtures.StackForMutation("mut-type-stack")
+			Expect(fixtures.CreateStackWithResources(ctx, c, swr)).To(Succeed())
+			stack = swr.Stack
+			_, err := helpers.WaitForStackReady(ctx, c, client.ObjectKeyFromObject(stack), readyTimeout)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should retire the Deployment and its pods when a Service becomes a CronJob", func() {
+			srName := stack.Spec.ResourceNames[0]
+			key := client.ObjectKey{Name: srName, Namespace: stack.Namespace}
+
+			By("Switching the StackResource to a CronJob")
+			sr := &corev1alpha1.StackResource{}
+			Expect(c.Get(ctx, key, sr)).To(Succeed())
+			sr.Spec.WorkloadType = corev1alpha1.WorkloadTypeCronJob
+			sr.Spec.Schedule = "*/15 * * * *"
+			// CronJobs cannot declare ports.
+			sr.Spec.Ports = nil
+			Expect(c.Update(ctx, sr)).To(Succeed())
+
+			By("Waiting for the CronJob")
+			Eventually(func() error {
+				_, err := helpers.GetCronJobForResource(ctx, c, stack.Namespace, srName)
+				return err
+			}, readyTimeout, 2*time.Second).Should(Succeed())
+
+			By("Waiting for the old Deployment to be deleted")
+			Expect(helpers.WaitForDeleted(ctx, c, key, &appsv1.Deployment{}, deleteTimeout)).To(Succeed())
+
+			By("Waiting for the old Deployment's pods to be gone")
+			Eventually(func() (int, error) {
+				pods := &corev1.PodList{}
+				if err := c.List(ctx, pods, client.InNamespace(stack.Namespace), client.MatchingLabels{"resource": srName}); err != nil {
+					return 0, err
+				}
+				fromReplicaSet := 0
+				for _, p := range pods.Items {
+					if owner := metav1.GetControllerOf(&p); owner != nil && owner.Kind == "ReplicaSet" {
+						fromReplicaSet++
+					}
+				}
+				return fromReplicaSet, nil
+			}, deleteTimeout, 2*time.Second).Should(BeZero())
+
+			By("Verifying the CronJob is still there")
+			cj, err := helpers.GetCronJobForResource(ctx, c, stack.Namespace, srName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cj.Spec.Schedule).To(Equal("*/15 * * * *"))
+			Expect(metav1.IsControlledBy(cj, sr)).To(BeTrue())
 		})
 
 		AfterAll(func() { helpers.CleanupStack(ctx, c, stack) })

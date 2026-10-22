@@ -23,6 +23,9 @@ func (r *Reconciler) reconcileStatefulSet(ctx context.Context, resource *v1alpha
 	if sts == nil {
 		return controller.ResultStop, nil
 	}
+	if err := r.retireStaleWorkloads(ctx, resource, sts); err != nil {
+		return controller.ResultNil, err
+	}
 	if restartApplied {
 		resource.Status.LastRestartRequestProcessedAt = ptr.To(v1.NewTime(time.Now().UTC()))
 		r.Status.ReportNotReady(ctx, resource, "StackResourceStatefulSetNotReady", "StackResource statefulset restart requested")
